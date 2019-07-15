@@ -153,7 +153,7 @@ class PointCloud(object):
         self._height_map_depth[self._height_map_depth == -zero_level] = 0
 
         # finally map the colors
-        num_channels = 3 if self._is_color else 1   
+        num_channels = 3 if self._is_color else 1
         self._height_map_color = np.zeros((heightmap_size[0], heightmap_size[1], num_channels), dtype="uint8")
         for c in range(num_channels):
             self._height_map_color[heightmap_pixel_y, heightmap_pixel_x, c] = color_sorted[:, c] * 255

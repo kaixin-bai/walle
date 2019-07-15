@@ -21,7 +21,7 @@ def estimate_rigid_transform_rotm(X, Y):
     Y_s = Y - Y_c
 
     # compute SVD of covariance matrix
-    cov = Y_s.T @ X_S
+    cov = Y_s.T @ X_s
     u, _, vt = np.linalg.svd(cov)
 
     # determine rotation

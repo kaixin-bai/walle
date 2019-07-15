@@ -128,6 +128,15 @@ class Pose(object):
         else:
             return (rotate_by * self)
 
+    @classmethod
+    def transform_from_rotm_tvec(cls, rotm, tvec):
+        """Stores the rotation and translation in a 4x4 transform.
+        """
+        transform = np.eye(4)
+        transform[:3, :3] = rotm
+        transform[:3, 3] = tvec
+        return transform
+
     @property
     def transform(self):
         """Returns the 4x4 transform representation of the pose.
