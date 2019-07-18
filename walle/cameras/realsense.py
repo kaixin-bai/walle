@@ -219,7 +219,6 @@ class RealSenseD415(Camera):
         """Shows live video feeds using cv2 pane.
         """
         current_milli_time = lambda: int(round(time.time() * 1000))
-        self.start()
         cv2.namedWindow('video', cv2.WINDOW_AUTOSIZE)
         frame_id_prev = self._frame_id
         timestamp_prev = current_milli_time()
@@ -257,7 +256,6 @@ class RealSenseD415(Camera):
         cv2.destroyAllWindows()
         for i in range(5):
             cv2.waitKey(1)
-        self.stop()
 
     def get_burst(self, num_frames, aligned=True, colorized=False):
         # get the required number of frames
