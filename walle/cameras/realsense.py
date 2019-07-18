@@ -113,6 +113,12 @@ class RealSenseD415(Camera):
             self._fps,
         )
 
+    def set_auto_exposure(self, val):
+        """Manually set auto-exposure value.
+        """
+        depth_sensor = self._profile.get_device().first_depth_sensor()
+        depth_sensor.set_option(rs.option.enable_auto_exposure, np.clip(val, 0, 1))
+
     def _get_factory_intrinsics(self):
         """Queries the factory intrinsics from the device.
         """
