@@ -14,7 +14,7 @@ pip install walle
 
 Walle features a growing set of submodules:
 
-- `core`: A unified data structure for dealing with position and orientation in 3-D space.
-- `cameras`: An extendable API for streaming data from RGB-D cameras. Currently supports the RealSense D415 camera.
-- `pointcloud`: An API for transforming to and from RGB-D images and point cloud
-- `utils`: Miscellaneous classes and functions useful for day to day research.
+- `core`: a unified data structure for dealing with position and orientation in 3-D space.
+- `cameras`: an extendable API for streaming data from RGB-D cameras. Currently supports the RealSense D415 camera.
+- `pointcloud`: an API for transforming to and from RGB-D images, point clouds and orthographic height maps.
+- `utils`: miscellaneous classes and functions useful for day to day research.
