@@ -43,11 +43,22 @@ def colorsave(filename, x):
 
 def depthsave(filename, x):
     """Saves a depth image as a 16 bit PNG.
-
-    Depth values are expected to be in meters. They
-    are saved in millimeters.
     """
-    io.imsave(filename, (x * 1000).astype("uint16"))
+    io.imsave(filename, (x * 1000).astype("uint16"), check_contrast=False)
+
+
+def colorload(filename):
+    """Loads an rgb image as a numpy array.
+    """
+    return np.asarray(Image.open(filename))
+
+
+def depthload(filename):
+    """Loads a depth image as a numpy array.
+    """
+    x = np.asarray(Image.open(filename))
+    x = (x * 1e-3).astype("float32")
+    return x
 
 
 def gen_checkerboard(n, s):
@@ -57,9 +68,3 @@ def gen_checkerboard(n, s):
     row_odd = (n // 2) * [1, 0]
     checkerboard = np.row_stack((n//2)*(row_even, row_odd))
     return checkerboard.repeat(s, axis=0).repeat(s, axis=1)
-
-
-def str2bool(v):
-    """Converts a boolean string into a python Boolean type.
-    """
-    return v.lower() in ['true', '1']

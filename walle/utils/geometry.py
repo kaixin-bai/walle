@@ -27,7 +27,7 @@ def estimate_rigid_transform_rotm(X, Y):
     # determine rotation
     rot = u @ vt
     if np.linalg.det(rot) < 0.:
-        logging.warn("Special reflection case.")
+        print("Special reflection case.")
         vt[2, :] *= -1
         rot = u @ vt
 
