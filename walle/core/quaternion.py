@@ -515,12 +515,6 @@ class UnitQuaternion(Quaternion):
         self._rotm = None
         self._rot_vec = None
 
-    def __add__(self, other):
-        raise NotImplementedError("[!] Addition is not implemented.")
-
-    def __sub__(self, other):
-        raise NotImplementedError("[!] Subtraction is not implemented..")
-
     def __mul__(self, other):
         """Unit-quaternion multiplication.
 

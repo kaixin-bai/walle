@@ -201,8 +201,8 @@ class PointCloud(object):
         x = points[:, 0]
         y = points[:, 1]
         z = points[:, 2]
-        v = np.round((x*fx/z) + cx).astype("int")
-        u = np.round((y*fy/z) + cy).astype("int")
+        v = np.round((x * fx / z) + cx).astype("int")
+        u = np.round((y * fy / z) + cy).astype("int")
         uv = np.vstack([u, v]).T
         return uv
 

@@ -8,6 +8,8 @@ import shutil
 import numpy as np
 import skimage.io as io
 
+from PIL import Image
+
 
 def makedir(dirname):
     """Safely creates a new directory.
@@ -56,7 +58,10 @@ def colorload(filename):
 def depthload(filename):
     """Loads a depth image as a numpy array.
     """
-    x = np.asarray(Image.open(filename))
+    if filename.split(".")[-1] == "txt":
+        x = np.loadtxt(filename)
+    else:
+        x = np.asarray(Image.open(filename))
     x = (x * 1e-3).astype("float32")
     return x
 
