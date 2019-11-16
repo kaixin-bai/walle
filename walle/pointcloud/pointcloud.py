@@ -217,12 +217,12 @@ class PointCloud(object):
             clrs = self._point_cloud[:, 3:].copy().astype(np.float64)
         else:
             clrs = np.repeat((self._point_cloud[:, 3:].copy()).astype(np.float64), 3, axis=1)
-        o3d_pc = [o3d.PointCloud()]
-        o3d_pc[0].points = o3d.Vector3dVector(pts)
-        o3d_pc[0].colors = o3d.Vector3dVector(clrs)
+        o3d_pc = [o3d.geometry.PointCloud()]
+        o3d_pc[0].points = o3d.utility.Vector3dVector(pts)
+        o3d_pc[0].colors = o3d.utility.Vector3dVector(clrs)
         if frame:
-            o3d_pc.append(o3d.create_mesh_coordinate_frame(size=0.1, origin=[0, 0, 0]))
-        o3d.draw_geometries(o3d_pc)
+            o3d_pc.append(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0]))
+        o3d.visualization.draw_geometries(o3d_pc)
 
     def view_imgs(self, figsize=(10, 10)):
         """Displays the color and depth images side by side.
