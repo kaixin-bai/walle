@@ -140,6 +140,8 @@ class PointCloud(object):
 
         # remove invalid indices
         point_cloud_valid = self._point_cloud[heightmap_valid_ind]
+        if point_cloud_valid.shape[0] == 0:
+            print("[!] View bounds are too restrictive.")
         points = point_cloud_valid[:, :3]
         color = point_cloud_valid[:, 3:]
 
@@ -252,6 +254,7 @@ class PointCloud(object):
         o3d_pc = [o3d.geometry.PointCloud()]
         o3d_pc[0].points = o3d.utility.Vector3dVector(pts)
         o3d_pc[0].colors = o3d.utility.Vector3dVector(clrs)
+        # o3d_pc[0].transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
         if frame:
             o3d_pc.append(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0]))
         o3d.visualization.draw_geometries(o3d_pc)
