@@ -61,6 +61,16 @@ class PointCloud(object):
         if self._img.max() > 1:
             self._img = (self._img / 255.).astype("float32")
 
+    @classmethod
+    def from_point_cloud(cls, xyzrgb, intrinsics, im_shape, extrinsics=None):
+        msg = "[!] Invalid image shape, product must equal point cloud length."
+        assert len(xyzrgb) == np.prod(im_shape), msg
+        color_im, depth_im = PointCloud.make_color_depth(xyzrgb, intrinsics, im_shape, extrinsics)
+        inst = cls(color_im, depth_im, intrinsics)
+        inst._point_cloud = xyzrgb
+        inst._extr = extrinsics
+        return inst
+
     def make_pointcloud(self, extrinsics=None, depth_trunc=3., trim=True):
         """Creates a 3-D point cloud.
 
@@ -74,6 +84,7 @@ class PointCloud(object):
                 trimming the size of the point cloud.
         """
         extrinsics = np.eye(4) if extrinsics is None else extrinsics
+        self._extr = extrinsics
         cc, rr = np.meshgrid(np.arange(self._width), np.arange(self._height), sparse=True)
         valid = (self._depth > 0) & (self._depth < depth_trunc)
         z = np.where(valid, self._depth, np.nan)
@@ -159,12 +170,12 @@ class PointCloud(object):
             self._height_map_color[heightmap_pixel_y, heightmap_pixel_x, c] = color_sorted[:, c] * 255
         self._height_map_color = self._height_map_color.squeeze()
 
-    @classmethod
-    def transform_point_cloud(cls, point_cloud, transforms):
+    @staticmethod
+    def transform_point_cloud(point_cloud, transforms):
         """Applies a rigid transform to a point cloud.
 
         Args:
-            point_cloud: (ndarray) The point cloud of shape (N, 6) or (N, 4).
+            point_cloud: (ndarray) The point cloud of shape (N, 6) or (N, 4) or (N, 3).
             transform: (ndarray) The rigid transform of shape (4, 4). Can also
                 be a list of transforms to apply sequentially.
 
@@ -181,10 +192,11 @@ class PointCloud(object):
         if point_cloud.shape[1] > 3:
             clrs = point_cloud[:, 3:]
             point_cloud = np.hstack([pts_t[:, :3], clrs])
-        return point_cloud
+            return point_cloud
+        return pts_t[:, :3]
 
-    @classmethod
-    def points2pixels(cls, points, intr, extr=np.eye(4)):
+    @staticmethod
+    def points2pixels(points, intr, extr=None):
         """Projects 3-D points into 2D pixels.
 
         Args:
@@ -195,6 +207,7 @@ class PointCloud(object):
         Returns:
             uv: (ndarray) The uv pixels of shape (N, 2).
         """
+        extr = np.eye(4) if extr is None else extr
         cx, cy = intr[0, 2], intr[1, 2]
         fx, fy = intr[0, 0], intr[1, 1]
         points = PointCloud.transform_point_cloud(points, np.linalg.inv(extr))
@@ -206,17 +219,36 @@ class PointCloud(object):
         uv = np.vstack([u, v]).T
         return uv
 
+    @staticmethod
+    def make_color_depth(xyzrgb, intrinsics, im_shape, extrinsics):
+        """Creates a color and depth image from a 3-D point cloud.
+        """
+        depth_im = np.zeros(im_shape)
+        color_im = np.zeros((*im_shape, 3))
+        pts = xyzrgb[:, :3]
+        clrs = xyzrgb[:, 3:]
+        uv = PointCloud.points2pixels(pts, intrinsics, extrinsics)
+        valid_idx = (uv[:, 0] >= 0) & (uv[:, 0] < im_shape[0]) & (uv[:, 1] >= 0) & (uv[:, 1] < im_shape[1])
+        uv = uv[valid_idx]
+        clrs = clrs[valid_idx]
+        depth = pts[valid_idx, 2]
+        depth_im[uv[:, 0], uv[:, 1]] = depth
+        color_im[uv[:, 0], uv[:, 1]] = clrs
+        return color_im, depth_im
+
     def view_point_cloud(self, frame=True):
         """Draws the point cloud in Open3D.
 
         Args:
             frame: (bool) Whether to plot the xyz coordinate frame.
         """
-        pts = self._point_cloud[:, :3].copy().astype(np.float64)
-        if self._point_cloud.shape[1] > 4:
-            clrs = self._point_cloud[:, 3:].copy().astype(np.float64)
+        # remove NaNs in case point cloud has not been trimmed
+        pc = self._point_cloud[~np.isnan(self._point_cloud[:, 2])]
+        pts = pc[:, :3].copy().astype(np.float64)
+        if pc.shape[1] > 4:
+            clrs = pc[:, 3:].copy().astype(np.float64)
         else:
-            clrs = np.repeat((self._point_cloud[:, 3:].copy()).astype(np.float64), 3, axis=1)
+            clrs = np.repeat((pc[:, 3:].copy()).astype(np.float64), 3, axis=1)
         o3d_pc = [o3d.geometry.PointCloud()]
         o3d_pc[0].points = o3d.utility.Vector3dVector(pts)
         o3d_pc[0].colors = o3d.utility.Vector3dVector(clrs)
