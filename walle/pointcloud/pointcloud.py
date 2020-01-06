@@ -8,39 +8,64 @@ import numpy as np
 import open3d as o3d
 
 
-class PointCloud(object):
+class PointCloud:
   """A 3-D point cloud.
   """
-  def __init__(self, color_im, depth_im, intrinsics):
-    """Initializes the point cloud.
+  def __init__(self, *args):
+    """Initializes the point cloud in any of the following ways:
 
-    Args:
-      color_im: (ndarray) An rgb image of shape (H, W, 3) or a
+    A.
+      color_im (ndarray): An rgb image of shape (H, W, 3) or a
         grayscale image of shape (H, W).
-      depth_im: (ndarray) A depth image of shape (H, W). The
+      depth_im (ndarray): A depth image of shape (H, W). The
         depth values are expected to be in meters.
-      intrinsics: (ndarray) The camera intrinsics as a numpy
+      intrinsics (ndarray): The camera intrinsics as a numpy
         array of shape (3, 3).
+    B.
+      xyzrgb (ndarray): A point cloud of shape (N, 3) if no color,
+        (N, 4) if grayscale or (N, 6) if rgb.
     """
-    self._check_valid_img(color_im, depth_im)
-    self._check_valid_intr(intrinsics)
-
-    self._color_im = np.array(color_im, copy=True)
-    self._depth_im = np.array(depth_im, copy=True)
-    self._intr = intrinsics
-
-    if color_im.ndim == 3:
-      self._is_color = True
-      self._height, self._width, self._channels = color_im.shape
-    else:
-      self._is_color = False
-      self._height, self._width = color_im.shape
-
-    self._preprocess_img()
-
-    self._point_cloud = None
+    self._point_cloud = np.zeros((0, 3))
+    self._o3d_pc = o3d.geometry.PointCloud()
+    self._is_normals_computed = False
+    self._color_im = None
+    self._depth_im = None
     self._height_map_color = None
     self._height_map_depth = None
+    self._intr = None
+
+    if len(args) == 1:
+      point_cloud = args[0]
+      self._check_valid_point_cloud(point_cloud)
+      self._point_cloud = np.array(point_cloud, copy=True)
+      self._is_color = self._point_cloud.shape[1] > 4
+      self._preprocess_point_cloud()
+    elif len(args) == 3:
+      color_im, depth_im, intrinsics = args
+      self._check_valid_img(color_im, depth_im)
+      self._check_valid_intr(intrinsics)
+      self._color_im = np.array(color_im, copy=True)
+      self._depth_im = np.array(depth_im, copy=True)
+      self._intr = intrinsics
+      if color_im.ndim == 3:
+        self._is_color = True
+        self._height, self._width, self._channels = color_im.shape
+      else:
+        self._is_color = False
+        self._height, self._width = color_im.shape
+      self._preprocess_img()
+    else:
+      raise ValueError("[!] Incorrect number of arguments.")
+
+  def __repr__(self):
+    s = "{}[{} points]"
+    return s.format(self.__class__.__name__, len(self._point_cloud))
+
+  def _check_valid_point_cloud(self, pc):
+    """Checks that the input point cloud is valid.
+    """
+    assert pc.ndim == 2
+    assert pc.shape[1] in [3, 4, 6]
 
   def _check_valid_img(self, img, depth):
     """Checks that the input data is valid.
@@ -56,10 +81,17 @@ class PointCloud(object):
     assert intr.shape == (3, 3)
 
   def _preprocess_img(self):
-    """Pre-proceses the color or gray image.
+    """Pre-processes the color or gray image.
     """
     if self._color_im.max() > 1:
       self._color_im = (self._color_im / 255.).astype("float32")
+
+  def _preprocess_point_cloud(self):
+    """Pre-processes the point cloud.
+    """
+    if self._point_cloud.shape[1] > 3:
+      if self._point_cloud[:, 3:].max() > 1:
+        self._point_cloud[:, 3:] /= 255
 
   @classmethod
   def from_point_cloud(cls, xyzrgb, intrinsics, im_shape, extrinsics=None):
@@ -102,6 +134,39 @@ class PointCloud(object):
       print("Trimming invalid points...")
       self._point_cloud = self._point_cloud[~np.isnan(self._point_cloud[:, 2])]
     print("# points: {:,}".format(len(self._point_cloud)))
+    # store open3d version of pc
+    pc = self._point_cloud[~np.isnan(self._point_cloud[:, 2])]
+    pts = pc[:, :3].copy().astype(np.float64)
+    if pc.shape[1] > 4:
+      clrs = pc[:, 3:].copy().astype(np.float64)
+    else:
+      clrs = np.repeat((pc[:, 3:].copy()).astype(np.float64), 3, axis=1)
+    self._o3d_pc.points = o3d.utility.Vector3dVector(pts)
+    self._o3d_pc.colors = o3d.utility.Vector3dVector(clrs)
+
+  def downsample(self, voxel_size=0.05, inplace=True):
+    """Uniformly downsample the point cloud using voxel bucketization.
+    """
+    o3d_pc_down = self._o3d_pc.voxel_down_sample(voxel_size=voxel_size)
+    pts_down = np.asarray(o3d_pc_down.points)
+    clrs_down = np.asarray(o3d_pc_down.colors)
+    pc_down = np.hstack([pts_down, clrs_down])
+    print("downsample points: {:,}".format(len(pc_down)))
+    if inplace:
+      self._point_cloud = pc_down
+      self._o3d_pc = o3d_pc_down
+    else:
+      ret = self.__class__(pc_down)
+      ret._o3d_pc = o3d_pc_down
+      ret._is_normals_computed = self._is_normals_computed
+      return ret
+
+  def compute_normals(self, radius=0.1, max_nn=30):
+    """Estimate a normal for every point in the cloud.
+    """
+    self._o3d_pc.estimate_normals(
+      search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_nn))
+    self._o3d_pc.orient_normals_to_align_with_direction()
 
   def make_heightmap(self, extrinsics, view_bounds, pixel_size, zero_level):
     """Returns a top-down orthographic heightmap image from the point cloud.
@@ -246,20 +311,11 @@ class PointCloud(object):
     Args:
       frame: (bool) Whether to plot the xyz coordinate frame.
     """
-    # remove NaNs in case point cloud has not been trimmed
-    pc = self._point_cloud[~np.isnan(self._point_cloud[:, 2])]
-    pts = pc[:, :3].copy().astype(np.float64)
-    if pc.shape[1] > 4:
-      clrs = pc[:, 3:].copy().astype(np.float64)
-    else:
-      clrs = np.repeat((pc[:, 3:].copy()).astype(np.float64), 3, axis=1)
-    o3d_pc = [o3d.geometry.PointCloud()]
-    o3d_pc[0].points = o3d.utility.Vector3dVector(pts)
-    o3d_pc[0].colors = o3d.utility.Vector3dVector(clrs)
+    pcs = [self._o3d_pc]
     # o3d_pc[0].transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
     if frame:
-      o3d_pc.append(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0]))
-    o3d.visualization.draw_geometries(o3d_pc)
+      pcs.append(o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1, origin=[0, 0, 0]))
+    o3d.visualization.draw_geometries(pcs)
 
   def view_imgs(self, figsize=None):
     """Displays the color and depth images side by side.
@@ -286,6 +342,10 @@ class PointCloud(object):
     if self._point_cloud is None:
       self.make_pointcloud()
     return self._point_cloud
+
+  @property
+  def normals(self):
+    return np.asarray(self._o3d_pc.normals)
 
   @property
   def color_im(self):
