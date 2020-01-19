@@ -18,3 +18,6 @@ Walle features a growing set of submodules:
 - `cameras`: an extendable API for streaming data from RGB-D cameras. Currently supports the RealSense D415 camera.
 - `pointcloud`: an API for transforming to and from RGB-D images, point clouds and orthographic height maps.
 - `utils`: miscellaneous classes and functions useful for day to day research.
+
+## 补充
+“walle/walle/pointcloud/”中介绍了生成height map的方法
